@@ -106,6 +106,25 @@ const resolvers = {
       // guardar el proyecto
       proyecto = await Proyecto.findOneAndUpdate({ _id: id }, input, { new: true });
       return proyecto;
+    },
+
+    eliminarProyecto: async(_, {id}, ctx) => {
+       // revisar que proyecto exista
+       let proyecto = await Proyecto.findById(id);
+
+       if (!proyecto) {
+         throw new Error('Proyecto no encontrado');
+       }
+ 
+       // revisar que si la persona que trata de editarlo, es el creador
+       if (proyecto.creador.toString() !== ctx.usuario.id) {
+         throw new Error('NO tienes las credenciales para editar');
+       }
+
+       // Eliminar
+       await Proyecto.findOneAndDelete({ _id : id });
+
+       return "Proyecto eliminado";
     }
   }
 }
