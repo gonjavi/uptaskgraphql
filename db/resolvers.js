@@ -1,5 +1,6 @@
 const Usuario = require('../models/Usuario');
 const Proyecto = require('../models/Proyecto');
+const Tarea = require('../models/Tarea');
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config({path: 'variables.env'});
@@ -17,8 +18,14 @@ const resolvers = {
       const proyectos = await Proyecto.find({ creador: ctx.usuario.id});
 
       return proyectos;
+    },
+    obtenerTareas: async (_, {input}, ctx) => {
+      console.log(ctx)
+      const tareas = await Tarea.find({ creador: ctx.usuario.id }).where('proyecto').equals(input.proyecto);
 
+      return tareas;
     }
+
   },
   Mutation: {
     crearUsuario: async (_, {input}) => {
@@ -27,7 +34,7 @@ const resolvers = {
       const existeUsuario = await Usuario.findOne({ email });
 
       if (existeUsuario) {
-        throw Error('El usuario ya existe')
+        throw new Error('El usuario ya existe')
       }
 
       try {
@@ -55,7 +62,7 @@ const resolvers = {
       const existeUsuario = await Usuario.findOne({ email });
 
       if (!existeUsuario) {
-        throw Error('El usuario no existe')
+        throw new Error('El usuario no existe')
       }
 
       // El password es correcto
@@ -67,7 +74,7 @@ const resolvers = {
 
       // dar acceso a la app
       return {
-        token: crearToken(existeUsuario, process.env.SECRETA, '2hr')
+        token: crearToken(existeUsuario, process.env.SECRETA, '7hr')
       }
 
     },
@@ -100,7 +107,7 @@ const resolvers = {
 
       // revisar que si la persona que trata de editarlo, es el creador
       if (proyecto.creador.toString() !== ctx.usuario.id) {
-        throw new Error('NO tienes las credenciales para editar');
+        throw new Error('No tienes las credenciales para editar');
       }
 
       // guardar el proyecto
@@ -125,6 +132,58 @@ const resolvers = {
        await Proyecto.findOneAndDelete({ _id : id });
 
        return "Proyecto eliminado";
+    },
+
+    nuevaTarea: async (_, {input}, ctx) => {
+      try {
+        const tarea = new Tarea(input);
+        tarea.creador = ctx.usuario.id;
+        const resultado = await tarea.save();
+        return resultado;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+
+    actualizarTarea: async (_,{ id, input, estado }, ctx) => {
+      // Si la tarea existe o no
+      let tarea = await Tarea.findById( id );
+
+      if(!tarea) {
+        throw new Error('Tarea no encontrada');
+      }
+
+      // Si la persona que edita es el creador
+      if(tarea.creador.toString() !== ctx.usuario.id) {
+        throw new Error('No tienes las credenciales para editar');
+      }
+
+      // asignar estado
+      input.estado = estado;
+
+      // Guardar y retornar la tarea
+      tarea = await Tarea.findOneAndUpdate({ _id : id }, input, { new: true});
+
+      return tarea;
+    },
+
+    eliminarTarea: async (_, { id }, ctx) => {
+      // Si la tarea existe o no
+      let tarea = await Tarea.findById( id );
+
+      if(!tarea) {
+        throw new Error('Tarea no encontrada');
+      }
+
+      // Si la persona que edita es el creador
+      if(tarea.creador.toString() !== ctx.usuario.id) {
+        throw new Error('No tienes las credenciales para editar');
+      }
+
+      // Eliminar
+      await Tarea.findOneAndDelete({_id: id});
+
+      return "Tarea Eliminada";
     }
   }
 }
